@@ -1,67 +1,69 @@
+# Load packages
 library(tidyverse)
-library(jsonlite)
 library(rjson)
 
 # Call the raw json object I saved from the posit api response tab
-# containing only Keynotes, Talks, and Lightning Talks
-raw_json_schedule <- fromJSON(file = "data/PositConf2023_Schedule_talks_9-14-11pm.json")
+# containing only Keynotes, Breakout Sessions, and Lightning
+day1_raw_json_schedule <- fromJSON(file = "data/2024-08-10_1253pm_PositConf2024_Schedule_Talks_Day1.json")
+day2_raw_json_schedule <- fromJSON(file = "data/2024-08-10_1253pm_PositConf2024_Schedule_Talks_Day2.json")
 
-# Create a data frame from the json
-schedule <- tibble(section = raw_json_schedule) |> 
+# combine the two json objects into one
+raw_schedule <- c(day1_raw_json_schedule, day2_raw_json_schedule)
+
+# Create data frames from the json
+schedule <- tibble(section = raw_schedule) |> 
 unnest_wider(section) |> 
   as.data.frame()
 
-# Create a function that, given the section number and item number, will go get
-# all the stuff I want
+# Create a function that, given the schedule, section number, and item number, 
+# will go get all the stuff I want
 
-get_talk_data <- function(sectionNum, itemNum) {
+get_talk_data <- function(raw_schedule, sectionNum, itemNum) {
   
-  talk_type <- raw_json_schedule %>% 
+  raw_json_schedule <- raw_schedule
+  # Get type
+  talk_type <- raw_json_schedule |> 
     purrr::pluck(sectionNum, "items", itemNum, "type") 
-  
-  talk_title <- raw_json_schedule %>% 
-    purrr::pluck(sectionNum, "items", itemNum, "title") 
-  
-  talk_date <- raw_json_schedule %>% 
-    purrr::pluck(sectionNum, "items", itemNum, "times", 1, "daySort") %>%
-    ymd() %>%
-    as.Date() %>% 
+  # Get title
+  talk_title <- raw_json_schedule |> 
+    pluck(sectionNum, "items", itemNum, "title") 
+  # Get date
+  talk_date <- raw_json_schedule |> 
+    pluck(sectionNum, "items", itemNum, "times", 1, "daySort") |>
+    lubridate::ymd() |>
     format("%m/%d/%Y")
+  # Get start time
+  talk_start_time <- raw_json_schedule |> 
+    pluck(sectionNum, "items", itemNum, "times", 1, "startTimeFormatted")
+  # Get end time
+  talk_end_time <- raw_json_schedule |> 
+    pluck(sectionNum, "items", itemNum, "times", 1, "endTimeFormatted")
+  # Get room/location
+  talk_location <- raw_json_schedule |> 
+    pluck(sectionNum, "items", itemNum, "times", 1, "room")
+  # Get abstract, but drop all the html tags that get picked up
+  talk_abstract <- gsub("<.*?>", "", raw_json_schedule |> 
+                          pluck(sectionNum, "items", itemNum, "abstract"))
   
-  talk_start_time <- raw_json_schedule %>% 
-    purrr::pluck(sectionNum, "items", itemNum, "times", 1, "startTimeFormatted")
+  # Check for multiple speakers!
+  all_speakers <- map_chr(raw_schedule |> pluck(sectionNum, "items", itemNum, "participants"), ~ .x$fullName)
+  num_speakers <- length(all_speakers)
   
-  talk_end_time <- raw_json_schedule %>% 
-    purrr::pluck(sectionNum, "items", itemNum, "times", 1, "endTimeFormatted")
-  
-  talk_location <- raw_json_schedule %>% 
-    purrr::pluck(sectionNum, "items", itemNum, "times", 1, "room")
-  
-  talk_speaker <- raw_json_schedule %>% 
-    purrr::pluck(sectionNum, "items", itemNum, "participants", 1, "fullName")
-  
-  # get abstract, but drop all the html tags that get picked up
-  talk_abstract <- gsub("<.*?>", "", raw_json_schedule %>% 
-                          purrr::pluck(sectionNum, "items", itemNum, "abstract"))
-  
-  # check for multiple speakers! Some talks have two and one has three
-  
-  # check for the one with 3 first, then 2 only if it didn't have a 3rd
-  if (!is.null(raw_json_schedule %>% purrr::pluck(sectionNum, "items", itemNum, "participants", 3, "fullName"))) {
-    talk_speaker <- paste0(raw_json_schedule %>% purrr::pluck(sectionNum, "items", itemNum, "participants", 1, "fullName"),
-                           ", ",
-                           raw_json_schedule %>% purrr::pluck(sectionNum, "items", itemNum, "participants", 2, "fullName"),
-                           ", & ",
-                           raw_json_schedule %>% purrr::pluck(sectionNum, "items", itemNum, "participants", 3, "fullName"))
-  } else if (!is.null(raw_json_schedule %>% purrr::pluck(sectionNum, "items", itemNum, "participants", 2, "fullName"))) {
-    talk_speaker <- paste0(raw_json_schedule %>% purrr::pluck(sectionNum, "items", itemNum, "participants", 1, "fullName"),
-                           " & ",
-                           raw_json_schedule %>% purrr::pluck(sectionNum, "items", itemNum, "participants", 2, "fullName"))
-  }
+  # Join speaker names based on the number of speakers
+  talk_speaker <- switch(
+    as.character(num_speakers),
+    "1" = all_speakers[1],
+    "2" = paste(all_speakers, collapse = " & "),
+    # For 3 or more speakers:
+    paste0(
+      paste(all_speakers[1:(num_speakers - 1)], collapse = ", "),
+      ", & ",
+      all_speakers[num_speakers]
+    )
+  )
   
   
-  
-  # output a row of info as a data frame, which we will rbind later
+  # output a row of info as a data frame, which we will rbind to an existing df
   data.frame(type = talk_type, 
              title = talk_title, 
              date = talk_date,
@@ -76,28 +78,18 @@ get_talk_data <- function(sectionNum, itemNum) {
 
 talk_df <- data.frame(matrix(ncol = 8, nrow = 0))
 
-colnames(talk_df) <- c('type', 
-                       'title', 
-                       'date', 
-                       'start_time', 
-                       'end_time', 
-                       'room', 
-                       'speaker', 
-                       'abstract')
 
-# loop through the talks and grab stuff
+# loop through the talks and grab stuff!
 
-# for each section of the json item
+# for each section of the json item (each row of the data.frame)
 for (i in 1:nrow(schedule)) {
-  # for each talk in the section
+  # for each talk/session in the section
   for (j in 1:schedule[i, "numItems"]) {
-    
-    talk_df <- rbind(talk_df, get_talk_data(i, j))
-    
+    # add a row to the df with the talk details
+    talk_df <- rbind(talk_df, get_talk_data(raw_schedule, i, j))
   }
-  
 }
 
 
-# Save the data frame as a csv file so it's easy to put into Notion if I want to
-write_csv(talk_df, "output/PositConf2023_talks.csv")
+# Save the data frame of talk details as a csv file
+write_csv(talk_df, "output/PositConf2024_talks.csv")
