@@ -1,0 +1,27 @@
+For the get_talks.R file:
+Lots of things are different this year 😅 challenge accepted, I guess. I'll use what I learned last year to build this year's code.
+
+First lesson: the network preview json object I get only contains one day at at time this year 🫠 so I need to name my files by date, or by "Tues" and "Weds" or something.
+
+Top level of the Tuesday json object contains 3 sublevels. Each of the three sublevels contains 7 values/entries - 
+- the only one that matters is "items"
+
+The items entry can be expanded and it contains multiple sublevels. Each of the sublevels (sessions) contains 47 values/entries.The ones that matter are:
+- title (title of the SESSION, not of a talk; example: 'Drugs Not Bugs: Effective Use Of R & Python In Pharma')
+- type (example: 'Breakout Session')
+- times (entry with one item)
+-- [[1]] (entry with 45 values)
+--- date (example: '2024-08-13')
+--- daySort (what I used last year, example: '20240813')
+--- endTimeFormatted (example: '11:40 AM', this is in pacific time)
+--- startTimeFormatted (example: '10:20 AM', this is in pacific time)
+--- room (example: '300 | Columbia C')
+- participants (entry with 4 items)
+-- [[1]]
+--- fullName (example: 'Nicole Jones')
+
+Last year, I didn't use the most elegant solution for checking how many speakers there were and grabbing them all. Can I do better this year? 
+
+I can assign the "participants" entry to a list object and then take the length of that list, then paste together the names in an appropriate way based on that number.
+
+I learned last year that I really wanted the speaker names FIRST in my google calendar events so that I could more easily see when my friends were talking. However, the schedule doesn't contain talks this year, it only contains sessions, with many, many speakers per session. That means it's impractical to put speakers in the event subject :(
