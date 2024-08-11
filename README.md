@@ -8,7 +8,7 @@ here](https://datahumans.notion.site/Posit-Conf-2024-Google-Calendar-0af73e68ee9
 
 Here’s what my resulting calendar looks like once I’ve color coded the
 events. So satisfying!  
-![](images/cal_example_image.png)
+[![](images/cal_example_image.png)](https://datahumans.notion.site/Posit-Conf-2024-Google-Calendar-0af73e68ee94448bb901a937e3e54acc?pvs=4)
 
 It’s a partly manual process of harvesting json objects from the
 conference schedule page, sifting through that messy json, and then
