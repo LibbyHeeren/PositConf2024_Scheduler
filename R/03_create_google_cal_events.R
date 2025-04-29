@@ -1,11 +1,11 @@
 # Load packages
 library(tidyverse)
 
-# This code is just if anyone's curious, I don't expect anyone to fine it useful 😂
+# This code is just if anyone's curious, I don't expect anyone to find it useful 😂
 
 # It turns the output csv into a google calendar compatible csv. 
 # The csv import doesn't preserve/include time zones, 
-# so only use this if you're in Pacific Time Zone.
+# so only use this if you're in Pacific Time Zone, or be ready to go change all the time zones to pacific for this calendar.
 # Just use the ics file I created: https://datahumans.notion.site/Posit-Conf-2024-Google-Calendar-0af73e68ee94448bb901a937e3e54acc?pvs=4
 
 # Import the output csv containing the talks only (from get_talks.R)
